@@ -1,0 +1,19 @@
+[package]
+name = "lvm_thin_pool_docker_volume"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.101"
+axum = "0.8.8"
+clap = { version = "4.6.1", features = ["derive", "env"] }
+docker_plugin.git = "https://github.com/abezukor/rust_docker_plugin.git"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1.49.0", features = ["rt", "net", "macros"] }
+tracing = "0.1.44"
+tracing-subscriber = {version = "0.3.22", features = ["env-filter"]}
+tempfile = "3.24.0"
+scc = "3.7"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_with = "3"
+rustix = {version = "1.1.4", features = ["mount"]}
