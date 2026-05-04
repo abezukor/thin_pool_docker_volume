@@ -748,25 +748,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
-name = "lvm_thin_pool_docker_volume"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "clap",
- "docker_plugin",
- "rustix",
- "scc",
- "serde",
- "serde_with",
- "tempfile",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "zbus",
-]
-
-[[package]]
 name = "matchers"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1238,6 +1219,25 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "thin_pool_docker_volume"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "docker_plugin",
+ "rustix",
+ "scc",
+ "serde",
+ "serde_with",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "zbus",
 ]
 
 [[package]]

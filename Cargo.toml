@@ -1,7 +1,28 @@
 [package]
-name = "lvm_thin_pool_docker_volume"
+name = "thin_pool_docker_volume"
 version = "0.1.0"
 edition = "2024"
+readme = "README.md"
+description = "Docker volume plugin backed by an LVM thin pool."
+license = "MIT"
+authors = ["Abraham Zukor <abe@maticrobots.com>"]
+repository = "https://github.com/abezukor/thin_pool_docker_volume"
+
+[package.metadata.deb]
+maintainer = "Abraham Zukor <abe@maticrobots.com>"
+copyright = "2026, Abraham Zukor <abe@maticrobots.com>"
+extended-description = """
+Exposes the Docker volume plugin protocol over a local socket and provisions
+each volume as a thin-provisioned LVM logical volume in a configured pool.
+"""
+section = "admin"
+priority = "optional"
+depends = "$auto, lvm2"
+assets = [
+    ["target/release/thin_pool_docker_volume", "/usr/bin/", "755"],
+    ["README.md", "/usr/share/doc/thin_pool_docker_volume/README", "644"],
+]
+systemd-units = { unit-scripts = ".", enable = false, start = false }
 
 [dependencies]
 anyhow = "1.0.101"
