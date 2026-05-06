@@ -141,32 +141,22 @@ impl VolumeState {
             VolumeState::Mounted {
                 mounted_by: 1,
                 creation_opts,
+                mount_dir,
                 lv,
                 ..
             } => {
-                let mut state = VolumeState::Provisioned {
-                    creation_opts: creation_opts.clone(),
-                    lv: lv.clone(),
-                };
-                std::mem::swap(&mut state, self);
-
-                let VolumeState::Mounted {
-                    mount_dir,
-                    mounted_by: 1,
-                    creation_opts: _,
-                    lv: _,
-                } = state
-                else {
-                    unreachable!()
-                };
-
+                let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
                 tokio::task::spawn_blocking(move || {
-                    let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
                     rustix::mount::unmount(mountpoint, UnmountFlags::empty())
                 })
                 .await
                 .unwrap()
                 .context("unmount failed")?;
+
+                *self = VolumeState::Provisioned {
+                    creation_opts: creation_opts.clone(),
+                    lv: lv.clone(),
+                };
 
                 Ok(())
             }
