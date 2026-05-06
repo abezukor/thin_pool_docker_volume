@@ -76,6 +76,11 @@ async fn main() -> Result<()> {
         .await
         .context("Failed to make vg proxy")?;
 
+    info!("Activating volume group");
+    vg.activate(0, -1, HashMap::new())
+        .await
+        .context("Failed to activate volume group")?;
+
     let thin_pool = find_thin_pool(&config, &connection, &vg).await?;
     tracing::debug!("Thin pool {:?}.", thin_pool,);
 
@@ -206,8 +211,15 @@ async fn get_existing<'a>(
                 .context("blkid probe did not return filesystem type")
         })
         .await
-        .unwrap()
-        .context("Failed to determine LV fs type")?;
+        .unwrap();
+
+        let fs_type = match fs_type {
+            Ok(fs_type) => fs_type,
+            Err(e) => {
+                warn!("Skipping LV {name}: could not determine filesystem type: {e:#}");
+                continue;
+            }
+        };
 
         trace!(
             "Importing {} as a docker volume with type {}.",
