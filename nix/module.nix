@@ -53,6 +53,8 @@ in
       message = "thin-pool-docker-volume requires Docker to be enabled (virtualisation.docker.enable = true)";
     }];
 
+    boot.kernelModules = [ "dm_thin_pool" ];
+
     # --- lvm2-lvmdbusd ---
     services.dbus.packages = [ cfg.lvm2DbusdPackage ];
     systemd.packages = [ cfg.lvm2DbusdPackage ];
@@ -81,6 +83,7 @@ in
 
       serviceConfig = {
         Type = "simple";
+        ExecStartPre = "${pkgs.systemd}/bin/busctl --system --timeout=30 status com.redhat.lvmdbus1";
         ExecStart = "${cfg.package}/bin/thin_pool_docker_volume";
         Restart = "on-failure";
         RestartSec = 5;
