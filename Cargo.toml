@@ -1,0 +1,41 @@
+[package]
+name = "thin_pool_docker_volume"
+version = "0.1.0"
+edition = "2024"
+readme = "README.md"
+description = "Docker volume plugin backed by an LVM thin pool."
+license = "MIT"
+authors = ["Abraham Zukor <abe@maticrobots.com>"]
+repository = "https://github.com/abezukor/thin_pool_docker_volume"
+
+[package.metadata.deb]
+maintainer = "Abraham Zukor <abe@maticrobots.com>"
+copyright = "2026, Abraham Zukor <abe@maticrobots.com>"
+extended-description = """
+Exposes the Docker volume plugin protocol over a local socket and provisions
+each volume as a thin-provisioned LVM logical volume in a configured pool.
+"""
+section = "admin"
+priority = "optional"
+depends = "$auto, lvm2"
+assets = [
+    ["target/release/thin_pool_docker_volume", "/usr/bin/", "755"],
+    ["README.md", "/usr/share/doc/thin_pool_docker_volume/README", "644"],
+]
+systemd-units = { unit-scripts = ".", enable = false, start = false }
+
+[dependencies]
+anyhow = "1.0.101"
+axum = "0.8.8"
+clap = { version = "4.6.1", features = ["derive", "env"] }
+docker_plugin.git = "https://github.com/abezukor/rust_docker_plugin.git"
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1.49.0", features = ["rt", "net", "macros"] }
+tracing = "0.1.44"
+tracing-subscriber = {version = "0.3.22", features = ["env-filter"]}
+tempfile = "3.24.0"
+scc = "3.7"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_with = "3"
+rustix = {version = "1.1.4", features = ["mount"]}
+libblkid-rs = "0.4.2"
