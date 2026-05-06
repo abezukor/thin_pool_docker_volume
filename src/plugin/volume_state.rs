@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf, process::Stdio};
 
 use anyhow::{Context, bail, ensure};
 use docker_plugin::volume::Volume as DockerVolume;
@@ -72,6 +72,9 @@ impl VolumeState {
             tokio::process::Command::new(format!("mkfs.{:}", creation_opts.fs_type))
                 .args(&creation_opts.format_options)
                 .arg(lv_common.path().await?)
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .stdin(Stdio::null())
                 .status()
                 .await
                 .context("Formatting lv failed")?
