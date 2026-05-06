@@ -36,14 +36,31 @@
         in
         {
           default = pkgs.mkShell {
+            nativeBuildInputs = [
+              pkgs.pkg-config
+              pkgs.clang
+              pkgs.llvmPackages.libclang.lib
+            ];
+
             buildInputs = [
               rustToolchain
-              pkgs.pkg-config
-            ];
-            packages = [
+              pkgs.util-linux     # Essential for libblkid
+              pkgs.glibc.dev      # Provides standard C headers
               pkgs.xfsprogs
-              pkgs.nil
             ];
+
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
+
+            # Use -isystem to treat these as system headers and avoid warnings
+            BINDGEN_EXTRA_CLANG_ARGS =
+              let
+                # Use the major version (e.g. "18") instead of the full version (e.g. "18.1.8")
+                libclangVersion = pkgs.lib.versions.major pkgs.llvmPackages.libclang.version;
+              in
+              builtins.concatStringsSep " " [
+                "-isystem ${pkgs.glibc.dev}/include"
+                "-isystem ${pkgs.llvmPackages.libclang.lib}/lib/clang/${libclangVersion}/include"
+              ];
           };
         }
       );

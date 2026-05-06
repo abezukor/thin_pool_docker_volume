@@ -1,12 +1,17 @@
 #![doc = include_str!("../README.md")]
 
 use std::{
-    collections::HashMap, env, fs::Permissions, os::unix::fs::PermissionsExt, path::PathBuf,
+    collections::HashMap,
+    env,
+    fs::Permissions,
+    os::unix::fs::PermissionsExt,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::{Context, Result, bail, ensure};
 use clap::{ArgAction, Parser};
+use libblkid_rs::{BlkidProbe, BlkidSafeprobeRet, BlkidSublks, BlkidSublksFlags};
 use tracing::{Level, info, trace, warn};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};
 use zbus::Connection;
@@ -182,14 +187,35 @@ async fn get_existing<'a>(
             continue;
         }
         let name = lv.name().await?;
-        trace!("Importing {} as a docker volume.", name);
+        let lv_path = lv.path().await?;
+        let fs_type = tokio::task::spawn_blocking(move || {
+            let mut probe = BlkidProbe::new_from_filename(Path::new(&lv_path))?;
+            probe.enable_superblocks(true)?;
+            probe.set_superblock_flags(BlkidSublksFlags::new(vec![BlkidSublks::Type]))?;
+            ensure!(
+                probe.do_safeprobe()? == BlkidSafeprobeRet::Success,
+                "Safe Probe failed"
+            );
+            probe
+                .lookup_value("TYPE")
+                .context("blkid probe did not return filesystem type")
+        })
+        .await
+        .unwrap()
+        .context("Failed to determine LV fs type")?;
+
+        trace!(
+            "Importing {} as a docker volume with type {}.",
+            name, fs_type
+        );
+
         existing_lvs.push((
             name,
             plugin::VolumeState::Provisioned {
                 creation_opts: plugin::Opts {
                     size: lv.size_bytes().await?,
                     mount_options: 0,
-                    fs_type: String::new(),
+                    fs_type,
                     format_options: Vec::new(),
                 },
                 lv: proxy_convert(&lv).await?,
