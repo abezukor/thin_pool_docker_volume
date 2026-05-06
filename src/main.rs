@@ -66,6 +66,10 @@ async fn main() -> Result<()> {
         .look_up_by_lvm_id(&config.vg_name)
         .await
         .context("cound not find vg")?;
+    lvm_manager
+        .refresh()
+        .await
+        .context("lvmdbusd refresh failed")?;
     let vg = VgProxy::builder(&connection)
         .path(vg)?
         .build()
@@ -181,7 +185,8 @@ async fn get_existing<'a>(
             .build()
             .await
             .context("Failed to make lv proxy")?;
-        trace!("lv {:?}. Pool {:?}", lv_path, lv.pool_lv().await?);
+        trace!("lv {}. Pool {:?}", lv.name().await?, lv.pool_lv().await?);
+        // LVs that are not in a thin pool will have a pool path of "/" so they will get filtered out.
         if &lv.pool_lv().await?.as_ref() != thin_pool.inner().path() {
             trace!("Skipping lv {:?}", lv_path);
             continue;
