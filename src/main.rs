@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
 
     info!("Starting Docker Plugin");
     let listener = tokio::net::UnixListener::bind(&socket)?;
-    tokio::fs::set_permissions(&socket, Permissions::from_mode(0o666)).await?;
+    tokio::fs::set_permissions(&socket, Permissions::from_mode(0o660)).await?;
     axum::serve(listener, app.into_make_service()).await?;
 
     Ok(())
