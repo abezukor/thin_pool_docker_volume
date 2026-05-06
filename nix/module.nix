@@ -48,6 +48,11 @@ in
   };
 
   config = mkIf cfg.enable {
+    assertions = [{
+      assertion = config.virtualisation.docker.enable;
+      message = "thin-pool-docker-volume requires Docker to be enabled (virtualisation.docker.enable = true)";
+    }];
+
     # --- lvm2-lvmdbusd ---
     services.dbus.packages = [ cfg.lvm2DbusdPackage ];
     systemd.packages = [ cfg.lvm2DbusdPackage ];
