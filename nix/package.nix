@@ -43,6 +43,11 @@ rustPlatform.buildRustPackage {
       "-isystem ${llvmPackages.libclang.lib}/lib/clang/${libclangVersion}/include"
     ];
 
+  postInstall = ''
+    install -Dm644 $src/thin_pool_docker_volume.service \
+      $out/lib/systemd/system/thin_pool_docker_volume.service
+  '';
+
   meta = {
     description = cargoToml.package.description;
     license = lib.licenses.mit;

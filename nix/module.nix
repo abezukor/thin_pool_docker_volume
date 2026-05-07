@@ -4,6 +4,17 @@ self:
 let
   cfg = config.services.thin-pool-docker-volume;
   inherit (lib) mkEnableOption mkOption types mkIf;
+
+  envFile = pkgs.writeText "thin_pool_docker_volume" (
+    lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (k: v: "${k}=${v}") ({
+        DOCKER_LVM_THIN_POOL_VG_NAME = cfg.vgName;
+        DOCKER_LVM_THIN_POOL_NAME = cfg.thinPoolName;
+        DOCKER_LVM_THIN_POOL_IMPORT_EXISTING = lib.boolToString cfg.importExisting;
+        RUST_LOG = "info";
+      } // cfg.extraEnvironment)
+    ) + "\n"
+  );
 in
 {
   options.services.thin-pool-docker-volume = {
@@ -64,7 +75,6 @@ in
 
     # --- lvm2-lvmdbusd ---
     services.dbus.packages = [ cfg.lvm2DbusdPackage ];
-    systemd.packages = [ cfg.lvm2DbusdPackage ];
 
     environment.etc."lvm/profile.d/lvmdbusd.profile".source =
       "${cfg.lvm2DbusdPackage}/etc/profile.d/lvmdbusd.profile";
@@ -73,29 +83,21 @@ in
       wantedBy = [ "multi-user.target" ];
     };
 
-    # --- thin-pool-docker-volume ---
-    systemd.services.thin-pool-docker-volume = {
-      description = "Docker volume plugin backed by an LVM thin pool";
-      after = [ "lvm2-lvmdbusd.service" "docker.service" ];
-      requires = [ "lvm2-lvmdbusd.service" ];
-      partOf = [ "docker.service" ];
-      wantedBy = [ "multi-user.target" ];
+    # Import upstream service files from both packages.
+    systemd.packages = [ cfg.lvm2DbusdPackage cfg.package ];
 
-      environment = {
-        DOCKER_LVM_THIN_POOL_VG_NAME = cfg.vgName;
-        DOCKER_LVM_THIN_POOL_NAME = cfg.thinPoolName;
-        DOCKER_LVM_THIN_POOL_IMPORT_EXISTING = lib.boolToString cfg.importExisting;
-        RUST_LOG = lib.mkDefault "info";
-      } // cfg.extraEnvironment;
+    # Generate the environment file the service already references.
+    environment.etc."default/thin_pool_docker_volume".source = envFile;
+
+    # NixOS-specific overrides via dropin.
+    systemd.services.thin_pool_docker_volume = {
+      overrideStrategy = "asDropin";
 
       path = cfg.filesystemTools;
 
       serviceConfig = {
-        Type = "simple";
-        ExecStartPre = "${pkgs.systemd}/bin/busctl --system --timeout=30 status com.redhat.lvmdbus1";
-        ExecStart = "${cfg.package}/bin/thin_pool_docker_volume";
-        Restart = "on-failure";
-        RestartSec = 5;
+        ExecStartPre = [ "${pkgs.systemd}/bin/busctl --system --timeout=30 status com.redhat.lvmdbus1" ];
+        ExecStart = [ "" "${cfg.package}/bin/thin_pool_docker_volume" ];
       };
     };
   };
