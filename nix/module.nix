@@ -92,6 +92,7 @@ in
     # NixOS-specific overrides via dropin.
     systemd.services.thin_pool_docker_volume = {
       overrideStrategy = "asDropin";
+      wantedBy = [ "multi-user.target" ];
 
       path = cfg.filesystemTools;
 
