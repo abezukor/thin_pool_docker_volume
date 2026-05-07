@@ -39,6 +39,13 @@ in
       description = "The lvm2-with-dbusd package to use.";
     };
 
+    filesystemTools = mkOption {
+      type = types.listOf types.package;
+      default = [ pkgs.xfsprogs pkgs.e2fsprogs pkgs.btrfs-progs ];
+      defaultText = lib.literalExpression "[ pkgs.xfsprogs pkgs.e2fsprogs pkgs.btrfs-progs ]";
+      description = "Packages providing mkfs.* tools available to the daemon.";
+    };
+
     extraEnvironment = mkOption {
       type = types.attrsOf types.str;
       default = { };
@@ -80,6 +87,8 @@ in
         DOCKER_LVM_THIN_POOL_IMPORT_EXISTING = lib.boolToString cfg.importExisting;
         RUST_LOG = lib.mkDefault "info";
       } // cfg.extraEnvironment;
+
+      path = cfg.filesystemTools;
 
       serviceConfig = {
         Type = "simple";
