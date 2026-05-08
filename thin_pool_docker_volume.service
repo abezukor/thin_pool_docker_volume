@@ -4,10 +4,12 @@ Documentation=file:///usr/share/doc/thin_pool_docker_volume/README
 After=lvm2-lvmdbusd.service docker.service
 Requires=lvm2-lvmdbusd.service
 PartOf=docker.service
+ConditionPathExists=/etc/default/thin_pool_docker_volume
 
 [Service]
 Type=simple
-EnvironmentFile=-/etc/default/thin_pool_docker_volume
+EnvironmentFile=/etc/default/thin_pool_docker_volume
+ExecStartPre=busctl --system --timeout=30 status com.redhat.lvmdbus1
 ExecStart=/usr/bin/thin_pool_docker_volume
 Restart=on-failure
 RestartSec=5

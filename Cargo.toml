@@ -1,6 +1,6 @@
 [package]
 name = "thin_pool_docker_volume"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 readme = "README.md"
 description = "Docker volume plugin backed by an LVM thin pool."
@@ -17,7 +17,7 @@ each volume as a thin-provisioned LVM logical volume in a configured pool.
 """
 section = "admin"
 priority = "optional"
-depends = "$auto, lvm2"
+depends = "$auto, lvm2-dbusd"
 assets = [
     ["target/release/thin_pool_docker_volume", "/usr/bin/", "755"],
     ["README.md", "/usr/share/doc/thin_pool_docker_volume/README", "644"],
