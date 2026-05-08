@@ -1,6 +1,6 @@
 [Unit]
 Description=Docker volume plugin backed by an LVM thin pool
-Documentation=file:///usr/share/doc/thin_pool_docker_volume/README
+Documentation=https://github.com/abezukor/thin_pool_docker_volume
 After=lvm2-lvmdbusd.service docker.service
 Requires=lvm2-lvmdbusd.service
 PartOf=docker.service

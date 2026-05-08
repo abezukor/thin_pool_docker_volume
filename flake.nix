@@ -1,5 +1,5 @@
 {
-  description = "Development Shell for Docker LVM Plugin Repo";
+  description = "Docker volume plugin backed by an LVM thin pool";
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-25.05";
@@ -10,16 +10,36 @@
   };
 
   outputs =
-    { nixpkgs, rust-overlay, ... }:
+    { self, nixpkgs, rust-overlay, ... }:
     let
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
-        "aarch64-darwin"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems f;
     in
     {
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ rust-overlay.overlays.default ];
+          };
+          rustToolchain = pkgs.rust-bin.stable."1.95.0".minimal;
+          rustPlatform = pkgs.makeRustPlatform {
+            cargo = rustToolchain;
+            rustc = rustToolchain;
+          };
+        in
+        {
+          thin-pool-docker-volume = pkgs.callPackage ./nix/package.nix { inherit rustPlatform; };
+          default = self.packages.${system}.thin-pool-docker-volume;
+        }
+      );
+
+      nixosModules.default = import ./nix/module.nix self;
+
       devShells = forAllSystems (
         system:
         let
@@ -44,17 +64,15 @@
 
             buildInputs = [
               rustToolchain
-              pkgs.util-linux     # Essential for libblkid
-              pkgs.glibc.dev      # Provides standard C headers
+              pkgs.util-linux
+              pkgs.glibc.dev
               pkgs.xfsprogs
             ];
 
             LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
 
-            # Use -isystem to treat these as system headers and avoid warnings
             BINDGEN_EXTRA_CLANG_ARGS =
               let
-                # Use the major version (e.g. "18") instead of the full version (e.g. "18.1.8")
                 libclangVersion = pkgs.lib.versions.major pkgs.llvmPackages.libclang.version;
               in
               builtins.concatStringsSep " " [
