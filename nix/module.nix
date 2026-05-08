@@ -86,9 +86,6 @@ in
     # Import upstream service files from both packages.
     systemd.packages = [ cfg.lvm2DbusdPackage cfg.package ];
 
-    # Generate the environment file the service already references.
-    environment.etc."default/thin_pool_docker_volume".source = envFile;
-
     # NixOS-specific overrides via dropin.
     systemd.services.thin_pool_docker_volume = {
       overrideStrategy = "asDropin";
@@ -96,8 +93,13 @@ in
 
       path = cfg.filesystemTools;
 
+      unitConfig = {
+        ConditionPathExists = [ "" envFile ];
+      };
+
       serviceConfig = {
         ExecStartPre = [ "${pkgs.systemd}/bin/busctl --system --timeout=30 status com.redhat.lvmdbus1" ];
+        EnvironmentFile = [ "" envFile ];
         ExecStart = [ "" "${cfg.package}/bin/thin_pool_docker_volume" ];
       };
     };
