@@ -112,11 +112,17 @@ impl VolumeState {
         let fs_type = opts.fs_type.clone();
 
         let mount_dir = tokio::task::spawn_blocking(move || {
-            let mount_dir = TempDir::new()?;
+            let mount_dir = TempDir::new().context("Failed to create mount dir")?;
             let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
-            std::fs::create_dir(&mountpoint)?;
-            rustix::mount::mount(source, mountpoint, fs_type, flags, None)?;
-            io::Result::Ok(mount_dir)
+            trace!("Mounting to {:?}", mountpoint);
+            std::fs::create_dir(&mountpoint).context("Failed to create mountpoint")?;
+            trace!(
+                "Mounting {} at {:?} with type {} and flags {:?}",
+                source, mountpoint, fs_type, flags
+            );
+            rustix::mount::mount(source, mountpoint, fs_type, flags, None)
+                .context("Mount failed")?;
+            Ok::<_, anyhow::Error>(mount_dir)
         })
         .await
         .unwrap()
