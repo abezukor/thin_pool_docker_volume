@@ -94,12 +94,16 @@ impl docker_plugin::volume::Driver for DockerLvmTmpFs {
     async fn remove(&self, req: RemoveRequest) -> anyhow::Result<()> {
         info!("Removing Volume {}", req.name);
 
-        let Entry::Occupied(entry) = self.volumes.entry_async(req.name).await else {
+        let Entry::Occupied(mut entry) = self.volumes.entry_async(req.name).await else {
             bail!("Entry does not exist")
         };
 
+        entry.get_mut().force_unmount().await?;
+
         match entry.get() {
-            VolumeState::Mounted { .. } => bail!("Cannot remove mounted volume"),
+            VolumeState::Mounted { .. } => {
+                unreachable!("force_unmount transitions out of Mounted")
+            }
             VolumeState::UnProvisioned { .. } => {}
             VolumeState::Provisioned { lv, .. } => {
                 let job = lv.remove(-1, HashMap::new()).await?;
