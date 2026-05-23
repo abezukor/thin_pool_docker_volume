@@ -1,6 +1,6 @@
 [package]
 name = "thin_pool_docker_volume"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 readme = "README.md"
 description = "Docker volume plugin backed by an LVM thin pool."

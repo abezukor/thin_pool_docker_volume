@@ -1,10 +1,10 @@
-use std::{collections::HashMap, io, path::PathBuf, process::Stdio};
+use std::{collections::HashMap, path::PathBuf, process::Stdio};
 
 use anyhow::{Context, bail, ensure};
 use docker_plugin::volume::Volume as DockerVolume;
 use rustix::mount::{MountFlags, UnmountFlags};
 use tempfile::TempDir;
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::lvm::{
     lv::LvProxy, lv_common::LvCommonProxy, owned_proxy, proxy_convert, thin_pool::ThinPoolProxy,
@@ -138,6 +138,44 @@ impl VolumeState {
         };
 
         Ok(mountpoint)
+    }
+
+    /// Tears down the mount regardless of the in-memory refcount.
+    ///
+    /// `Driver::remove` calls this so a stale `Mounted` state — left over when
+    /// Docker skipped the `Unmount` call (container SIGKILL/OOM, daemon
+    /// restart) — doesn't permanently wedge `docker volume rm`. Docker only
+    /// issues `Remove` when no live container references the volume, so
+    /// forcing through the kernel unmount here is safe.
+    pub async fn force_unmount(&mut self) -> std::io::Result<()> {
+        let VolumeState::Mounted {
+            creation_opts,
+            mount_dir,
+            lv,
+            mounted_by,
+        } = self
+        else {
+            return Ok(());
+        };
+        if *mounted_by != 1 {
+            tracing::warn!(
+                "Force unmounting volume with stale refcount {}",
+                *mounted_by
+            );
+        }
+        let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
+        tokio::task::spawn_blocking(move || {
+            rustix::mount::unmount(mountpoint, UnmountFlags::empty())
+        })
+        .await
+        .unwrap()?;
+
+        *self = VolumeState::Provisioned {
+            creation_opts: creation_opts.clone(),
+            lv: lv.clone(),
+        };
+
+        Ok(())
     }
 
     pub async fn unmount(&mut self) -> anyhow::Result<()> {
