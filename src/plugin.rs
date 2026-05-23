@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::ErrorKind};
 
 use anyhow::{Context, bail};
 use docker_plugin::volume::{
@@ -98,7 +98,19 @@ impl docker_plugin::volume::Driver for DockerLvmTmpFs {
             bail!("Entry does not exist")
         };
 
-        entry.get_mut().force_unmount().await?;
+        if let Err(e) = entry.get_mut().force_unmount().await {
+            match e.kind() {
+                ErrorKind::ResourceBusy => {
+                    bail!("Volume still in use, cannot remove");
+                }
+                ErrorKind::InvalidInput | ErrorKind::NotFound => {
+                    // Volume was already removed, ignore
+                }
+                _ => {
+                    return Err(e).context("Failed to force unmount the volume");
+                }
+            }
+        }
 
         match entry.get() {
             VolumeState::Mounted { .. } => {

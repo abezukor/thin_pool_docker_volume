@@ -147,7 +147,7 @@ impl VolumeState {
     /// restart) — doesn't permanently wedge `docker volume rm`. Docker only
     /// issues `Remove` when no live container references the volume, so
     /// forcing through the kernel unmount here is safe.
-    pub async fn force_unmount(&mut self) -> anyhow::Result<()> {
+    pub async fn force_unmount(&mut self) -> std::io::Result<()> {
         let VolumeState::Mounted {
             creation_opts,
             mount_dir,
@@ -168,8 +168,7 @@ impl VolumeState {
             rustix::mount::unmount(mountpoint, UnmountFlags::empty())
         })
         .await
-        .unwrap()
-        .context("unmount failed")?;
+        .unwrap()?;
 
         *self = VolumeState::Provisioned {
             creation_opts: creation_opts.clone(),
