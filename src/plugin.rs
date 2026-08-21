@@ -1,11 +1,12 @@
 use std::{collections::HashMap, io::ErrorKind};
 
-use anyhow::{Context, bail};
+use anyhow::{Context, bail, ensure};
 use docker_plugin::volume::{
     Capabilities, CapabilitiesResponse, CreateRequest, GetRequest, GetResponse, ListResponse,
     MountRequest, MountResponse, PathRequest, PathResponse, RemoveRequest,
 };
 use rustix::ffi;
+use rustix::mount::MountFlags;
 use scc::HashMap as SccHashMap;
 use scc::hash_map::Entry;
 use serde::{Deserialize, Serialize};
@@ -36,6 +37,31 @@ pub struct Opts {
     #[serde(default)]
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
     pub format_options: Vec<String>,
+
+    /// Permissions to apply to the volume root on mount, as an octal string
+    /// (`"1777"`, `"0755"`). Absent leaves whatever `mkfs` produced.
+    ///
+    /// Lets a caller hand a world-writable volume to an unprivileged container
+    /// without launching a separate `chmod` container first, which in turn
+    /// makes anonymous volumes usable.
+    #[serde(default, deserialize_with = "de_octal_mode")]
+    pub root_mode: Option<u32>,
+}
+
+/// Docker passes every `driver_opt` as a string, and a mode is conventionally
+/// written in octal, so `"1777"` has to be read base 8 — `DisplayFromStr`
+/// would silently take it as decimal 1777.
+fn de_octal_mode<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error> {
+    use serde::Deserialize;
+
+    let Some(mode) = Option::<String>::deserialize(deserializer)? else {
+        return Ok(None);
+    };
+    u32::from_str_radix(mode.trim_start_matches("0o"), 8)
+        .map(Some)
+        .map_err(serde::de::Error::custom)
 }
 
 impl DockerLvmTmpFs {
@@ -56,6 +82,15 @@ impl docker_plugin::volume::Driver for DockerLvmTmpFs {
 
     async fn create(&self, req: CreateRequest<Self::Opts>) -> anyhow::Result<()> {
         info!("Creating Volume {}", req.name);
+
+        // Validate the opts here rather than at mount time, so a bad
+        // `docker volume create` fails where the opts were written.
+        let flags =
+            MountFlags::from_bits(req.options.mount_options).context("Unrecognized mount flags")?;
+        ensure!(
+            req.options.root_mode.is_none() || !flags.contains(MountFlags::RDONLY),
+            "root_mode cannot be applied to a read-only volume (MS_RDONLY in mount_options)"
+        );
 
         let mut entry = match self.volumes.entry_async(req.name.clone()).await {
             Entry::Vacant(v) => v.insert_entry(VolumeState::UnProvisioned {
