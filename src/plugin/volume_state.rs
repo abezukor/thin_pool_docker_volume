@@ -1,4 +1,7 @@
-use std::{collections::HashMap, io::ErrorKind, path::PathBuf, process::Stdio};
+use std::{
+    collections::HashMap, fs::Permissions, io::ErrorKind, os::unix::fs::PermissionsExt,
+    path::PathBuf, process::Stdio,
+};
 
 use anyhow::{Context, bail, ensure};
 use docker_plugin::volume::Volume as DockerVolume;
@@ -110,6 +113,7 @@ impl VolumeState {
         let flags =
             MountFlags::from_bits(opts.mount_options).context("Unrecognized mount flags")?;
         let fs_type = opts.fs_type.clone();
+        let root_mode = opts.root_mode;
 
         let mount_dir = tokio::task::spawn_blocking(move || {
             let mount_dir = TempDir::new().context("Failed to create mount dir")?;
@@ -130,12 +134,23 @@ impl VolumeState {
 
         let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
 
+        // Transition before the chmod below, so that a chmod failure leaves a
+        // `Mounted` state matching the still-mounted filesystem. Docker won't
+        // call `Unmount` for a `Mount` that failed, so the reconciliation in
+        // `force_unmount` is what cleans this up on the eventual `Remove`.
         *self = Self::Mounted {
             mount_dir,
             mounted_by: 1,
             lv: lv.clone(),
             creation_opts: opts.clone(),
         };
+
+        if let Some(mode) = root_mode {
+            let permissions = Permissions::from_mode(mode);
+            tokio::fs::set_permissions(&mountpoint, permissions)
+                .await
+                .with_context(|| format!("Failed to chmod volume root to {mode:o}"))?;
+        }
 
         Ok(mountpoint)
     }

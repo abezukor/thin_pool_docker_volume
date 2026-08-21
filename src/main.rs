@@ -234,6 +234,9 @@ async fn get_existing<'a>(
                     mount_options: 0,
                     fs_type,
                     format_options: Vec::new(),
+                    // The volume root already has whatever mode it was created
+                    // with; re-applying one on import would only overwrite it.
+                    root_mode: None,
                 },
                 lv: proxy_convert(&lv).await?,
             },
