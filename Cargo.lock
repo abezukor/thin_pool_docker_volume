@@ -392,12 +392,13 @@ dependencies = [
 [[package]]
 name = "docker_plugin"
 version = "0.1.0"
-source = "git+https://github.com/abezukor/rust_docker_plugin.git#b76a80a3e75eebff18e10120dacaeb9ae177b4f5"
+source = "git+https://github.com/abezukor/rust_docker_plugin.git#349e0fb099c83f1532c96b55c2675baac49f845d"
 dependencies = [
  "anyhow",
  "axum",
  "serde",
  "serde_json",
+ "tracing",
 ]
 
 [[package]]
@@ -1357,7 +1358,7 @@ dependencies = [
 
 [[package]]
 name = "thin_pool_docker_volume"
-version = "0.1.2"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "axum",

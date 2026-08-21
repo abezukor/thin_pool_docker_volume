@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, process::Stdio};
+use std::{collections::HashMap, io::ErrorKind, path::PathBuf, process::Stdio};
 
 use anyhow::{Context, bail, ensure};
 use docker_plugin::volume::Volume as DockerVolume;
@@ -147,6 +147,10 @@ impl VolumeState {
     /// restart) — doesn't permanently wedge `docker volume rm`. Docker only
     /// issues `Remove` when no live container references the volume, so
     /// forcing through the kernel unmount here is safe.
+    ///
+    /// `EINVAL`/`ENOENT` from `umount(2)` means the kernel disagrees with our
+    /// cached `Mounted` state; transition to `Provisioned` anyway so the caller
+    /// doesn't fall through to a state-machine `unreachable!`.
     pub async fn force_unmount(&mut self) -> std::io::Result<()> {
         let VolumeState::Mounted {
             creation_opts,
@@ -164,11 +168,22 @@ impl VolumeState {
             );
         }
         let mountpoint = mount_dir.path().join(Self::MOUNT_NAME);
-        tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             rustix::mount::unmount(mountpoint, UnmountFlags::empty())
         })
         .await
-        .unwrap()?;
+        .unwrap();
+
+        match result.map_err(|e| e.kind()) {
+            Ok(()) => {}
+            Err(kind @ (ErrorKind::InvalidInput | ErrorKind::NotFound)) => {
+                tracing::warn!(
+                    ?kind,
+                    "unmount reported not-mounted; reconciling cached state"
+                );
+            }
+            Err(kind) => return Err(kind.into()),
+        }
 
         *self = VolumeState::Provisioned {
             creation_opts: creation_opts.clone(),
